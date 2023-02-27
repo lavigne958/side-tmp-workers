@@ -24,7 +24,7 @@ func main() {
 
 	res := db.QueryRow("SELECT SQLITE_VERSION()")
 	if res.Err() != nil {
-		logger.Fatalln("failed to get sqlite version")
+		logger.Fatalln("failed to open DB: ", res.Err())
 		os.Exit(1)
 	}
 	var version string
