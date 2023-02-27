@@ -23,6 +23,7 @@ type item struct {
 	NrSlotsFilled    uint32     `json:"slots-filled"`
 	NrApplicants     uint32     `json:"applicants"`
 	Status           taskStatus `json:"status"`
+	Picture          string     `json:"picture"`
 }
 
 type items struct {
@@ -60,7 +61,7 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 
 	resposne.Header().Add("content-type", "application/json")
 
-	stmt := fmt.Sprintf("select id, name, organisation, slots, available, filled, applicants, status from %s;", TASK_TABLE_NAME)
+	stmt := fmt.Sprintf("select id, name, organisation, slots, available, filled, applicants, status, picture from %s;", TASK_TABLE_NAME)
 	res, err := db.Query(stmt)
 	if err != nil {
 		msg := fmt.Sprintf("failed to get tasks list from DB: %v", err)
@@ -82,6 +83,7 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 			&item.NrSlotsFilled,
 			&item.NrApplicants,
 			&item.Status,
+			&item.Picture,
 		)
 		if err != nil {
 			msg := fmt.Sprintf("failed to extra item from database: %v", err)
@@ -136,11 +138,11 @@ func handleAdd(response http.ResponseWriter, request *http.Request) {
 
 	logger.Println("add new object: ", item)
 	stmt := fmt.Sprintf(
-		"insert into %s(name, organisation, slots, available, filled, applicants, status) "+
-			"values ('%s', '%s', %d, %d, %d, %d, '%s')",
+		"insert into %s(name, organisation, slots, available, filled, applicants, status, picture) "+
+			"values ('%s', '%s', %d, %d, %d, %d, '%s', '%s')",
 		TASK_TABLE_NAME, item.Name, item.Organisation,
 		item.NrSlots, item.NrSlotsAvailable, item.NrSlotsFilled,
-		item.NrApplicants, item.Status,
+		item.NrApplicants, item.Status, item.Picture,
 	)
 	logger.Println("exec: ", stmt)
 	_, err = db.Exec(stmt)
@@ -176,7 +178,8 @@ func initTables() error {
 				available integer,
 				filled integer,
 				applicants integer,
-				status string
+				status string,
+				picture string
 			);
 		`,
 		TASK_TABLE_NAME,
