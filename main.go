@@ -10,16 +10,30 @@ import (
 )
 
 var (
-	logger = log.Default()
+	logger         = log.Default()
+	db     *sql.DB = nil
 )
 
 func handleList(resposne http.ResponseWriter, request *http.Request) {
 	logger.Println("Handler /list route")
 }
 
+func initTables() error {
+	logger.Println("Init database tables")
+
+	statement := "create table if not exists tasks (id integer not null primary key, org_name string, );"
+	_, err := db.Exec(statement)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	logger.Println("start server")
-	db, err := sql.Open("sqlite3", "side.db")
+	var err error
+	db, err = sql.Open("sqlite3", "side.db")
 	if err != nil {
 		logger.Fatalln("failed to open db 'side.db'")
 		os.Exit(1)
@@ -36,6 +50,11 @@ func main() {
 	res.Scan(&version)
 
 	logger.Println("Sqlite version: ", version)
+	err = initTables()
+	if err != nil {
+		logger.Fatalln("failed to init tables: ", err)
+		os.Exit(1)
+	}
 
 	server := http.NewServeMux()
 	server.HandleFunc("/list", handleList)
