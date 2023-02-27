@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -24,6 +25,7 @@ type items struct {
 var (
 	logger         = log.Default()
 	db     *sql.DB = nil
+	reset          = flag.Bool("reset-db", false, "reset the database at init")
 )
 
 const (
@@ -133,6 +135,14 @@ func handleAdd(response http.ResponseWriter, request *http.Request) {
 func initTables() error {
 	logger.Println("Init database tables")
 
+	if *reset {
+		logger.Println("reset table")
+		_, err := db.Exec(fmt.Sprintf("drop table %s;", TASK_TABLE_NAME))
+		if err != nil {
+			logger.Fatalln("failed to drop table at init: ", err)
+		}
+	}
+
 	statement := fmt.Sprintf(
 		"create table if not exists %s (id integer not null primary key autoincrement,name string, organisation string);",
 		TASK_TABLE_NAME,
@@ -147,6 +157,8 @@ func initTables() error {
 
 func main() {
 	logger.Println("start server")
+	flag.Parse()
+
 	var err error
 	db, err = sql.Open("sqlite3", "side.db")
 	if err != nil {
