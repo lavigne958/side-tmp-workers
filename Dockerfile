@@ -6,6 +6,8 @@ WORKDIR /code
 
 COPY ./go.mod ./
 COPY ./go.sum ./
+# pre-install go-sqlite3 to save build time
+RUN go install github.com/mattn/go-sqlite3
 COPY ./main.go ./
 
 RUN go get
