@@ -12,10 +12,17 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type taskStatus string
+
 type item struct {
-	Id           uint64 `json:"id"`
-	Name         string `json:"name"`
-	Organisation string `json:"organisation"`
+	Id               uint64     `json:"id"`
+	Name             string     `json:"name"`
+	Organisation     string     `json:"organisation"`
+	NrSlots          uint32     `json:"slots-total"`
+	NrSlotsAvailable uint32     `json:"slots-available"`
+	NrSlotsFilled    uint32     `json:"slots-filled"`
+	NrApplicants     uint32     `json:"applicants"`
+	Status           taskStatus `json:"status"`
 }
 
 type items struct {
@@ -30,6 +37,10 @@ var (
 
 const (
 	TASK_TABLE_NAME string = "tasks"
+
+	STATUS_UPCOMING taskStatus = "upcoming"
+	STATUS_ONGOING  taskStatus = "ongoing"
+	STATUS_DONE     taskStatus = "done"
 )
 
 func handleList(resposne http.ResponseWriter, request *http.Request) {
@@ -49,7 +60,7 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 
 	resposne.Header().Add("content-type", "application/json")
 
-	stmt := fmt.Sprintf("select id, name, organisation from %s;", TASK_TABLE_NAME)
+	stmt := fmt.Sprintf("select id, name, organisation, slots, available, filled, applicants, status from %s;", TASK_TABLE_NAME)
 	res, err := db.Query(stmt)
 	if err != nil {
 		msg := fmt.Sprintf("failed to get tasks list from DB: %v", err)
@@ -62,7 +73,16 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 	items := items{[]item{}}
 	for res.Next() {
 		item := item{}
-		err = res.Scan(&item.Id, &item.Name, &item.Organisation)
+		err = res.Scan(
+			&item.Id,
+			&item.Name,
+			&item.Organisation,
+			&item.NrSlots,
+			&item.NrSlotsAvailable,
+			&item.NrSlotsFilled,
+			&item.NrApplicants,
+			&item.Status,
+		)
 		if err != nil {
 			msg := fmt.Sprintf("failed to extra item from database: %v", err)
 			writeErrorResponse(resposne, 503, msg)
@@ -116,9 +136,11 @@ func handleAdd(response http.ResponseWriter, request *http.Request) {
 
 	logger.Println("add new object: ", item)
 	stmt := fmt.Sprintf(
-		"insert into %s(name, organisation) "+
-			"values ('%s', '%s')",
+		"insert into %s(name, organisation, slots, available, filled, applicants, status) "+
+			"values ('%s', '%s', %d, %d, %d, %d, '%s')",
 		TASK_TABLE_NAME, item.Name, item.Organisation,
+		item.NrSlots, item.NrSlotsAvailable, item.NrSlotsFilled,
+		item.NrApplicants, item.Status,
 	)
 	logger.Println("exec: ", stmt)
 	_, err = db.Exec(stmt)
@@ -144,7 +166,19 @@ func initTables() error {
 	}
 
 	statement := fmt.Sprintf(
-		"create table if not exists %s (id integer not null primary key autoincrement,name string, organisation string);",
+		`
+		create table if not exists %s
+			(
+				id integer not null primary key autoincrement,
+				name string,
+				organisation string,
+				slots integer,
+				available integer,
+				filled integer,
+				applicants integer,
+				status string
+			);
+		`,
 		TASK_TABLE_NAME,
 	)
 	_, err := db.Exec(statement)
