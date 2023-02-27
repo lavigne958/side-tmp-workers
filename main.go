@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"log"
+	"net/http"
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -11,6 +12,10 @@ import (
 var (
 	logger = log.Default()
 )
+
+func handleList(resposne http.ResponseWriter, request *http.Request) {
+	logger.Println("Handler /list route")
+}
 
 func main() {
 	logger.Println("start server")
@@ -31,4 +36,13 @@ func main() {
 	res.Scan(&version)
 
 	logger.Println("Sqlite version: ", version)
+
+	server := http.NewServeMux()
+	server.HandleFunc("/list", handleList)
+
+	err = http.ListenAndServe(":80", server)
+	if err != nil {
+		logger.Fatalln("Failed to server requests: ", err)
+		os.Exit(1)
+	}
 }
