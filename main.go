@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -124,7 +124,7 @@ func handleAdd(response http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	body, err := ioutil.ReadAll(request.Body)
+	body, err := io.ReadAll(request.Body)
 	if err != nil {
 		msg := fmt.Sprintf("failed to read full body of length: %d", request.ContentLength)
 		writeErrorResponse(response, 503, msg)
