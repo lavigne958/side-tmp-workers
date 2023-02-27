@@ -39,7 +39,7 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	if request.Header.Get("accepts") != "application/json" {
+	if request.Header.Get("accept") != "application/json" {
 		msg := "/list only accepts 'application/json'"
 		writeErrorResponse(resposne, 400, msg)
 		return
@@ -50,14 +50,14 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 	stmt := fmt.Sprintf("select id, name, organisation from %s;", TASK_TABLE_NAME)
 	res, err := db.Query(stmt)
 	if err != nil {
-		msg := "failed to get tasks list from DB"
+		msg := fmt.Sprintf("failed to get tasks list from DB: %v", err)
 		writeErrorResponse(resposne, 503, msg)
 		return
 	}
 
 	defer res.Close()
 
-	items := items{}
+	items := items{[]item{}}
 	for res.Next() {
 		item := item{}
 		err = res.Scan(&item.Id, &item.Name, &item.Organisation)
