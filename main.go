@@ -128,7 +128,7 @@ func writeErrorResponse(w http.ResponseWriter, code int, msg string) {
 	w.Write([]byte(msg))
 }
 
-func handleAdd(response http.ResponseWriter, request *http.Request) {
+func handleTaskAdd(response http.ResponseWriter, request *http.Request) {
 	logger.Println("Add new task")
 
 	if request.Method != http.MethodPost {
@@ -177,6 +177,53 @@ func handleAdd(response http.ResponseWriter, request *http.Request) {
 
 	response.WriteHeader(200)
 	response.Write([]byte("OK"))
+}
+
+func handleOpsAdd(w http.ResponseWriter, req *http.Request) {
+	logger.Println("add new ops memeber")
+
+	if req.Method != http.MethodPost {
+		msg := "/add only accepts POST requests"
+		writeErrorResponse(w, 400, msg)
+		return
+	}
+
+	if req.Header.Get("content-type") != "application/json" {
+		msg := "/add only accepts 'applicaton/json' content-type"
+		writeErrorResponse(w, 400, msg)
+		return
+	}
+
+	if req.ContentLength <= 0 {
+		msg := "/add request must be >0"
+		writeErrorResponse(w, 409, msg)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		msg := fmt.Sprintf("failed to read full body of length: %d", req.ContentLength)
+		writeErrorResponse(w, 503, msg)
+		return
+	}
+
+	ops := ops_member{}
+	json.Unmarshal(body, &ops)
+
+	logger.Println("add new ops member: ", ops)
+
+	stmt := fmt.Sprintf(`
+		insert into %s(name) values ("%s");
+	`, OPS_TABLE_NAME, ops.Name)
+	_, err = db.Exec(stmt)
+	if err != nil {
+		msg := fmt.Sprintf("failed to insert ops member: %v", err)
+		writeErrorResponse(w, 503, msg)
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Write([]byte("ok"))
 }
 
 func initTables() error {
@@ -274,7 +321,8 @@ func main() {
 
 	server := http.NewServeMux()
 	server.HandleFunc("/list", handleList)
-	server.HandleFunc("/add", handleAdd)
+	server.HandleFunc("/task/add", handleTaskAdd)
+	server.HandleFunc("/ops/add", handleOpsAdd)
 
 	err = http.ListenAndServe(":80", server)
 	if err != nil {
