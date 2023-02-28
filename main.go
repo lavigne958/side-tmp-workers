@@ -61,7 +61,18 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 
 	resposne.Header().Add("content-type", "application/json")
 
-	stmt := fmt.Sprintf("select id, name, organisation, slots, available, filled, applicants, status, picture from %s;", TASK_TABLE_NAME)
+	stmt := fmt.Sprintf("select id, name, organisation, slots, available, filled, applicants, status, picture from %s", TASK_TABLE_NAME)
+
+	query := request.URL.Query()
+	if query.Has("status") {
+		status_filter := query.Get("status")
+		stmt = fmt.Sprintf("%s where status='%s'", stmt, status_filter)
+	}
+
+	// don't forget to add trailling ;
+	stmt += ";"
+
+	logger.Println(stmt)
 	res, err := db.Query(stmt)
 	if err != nil {
 		msg := fmt.Sprintf("failed to get tasks list from DB: %v", err)
