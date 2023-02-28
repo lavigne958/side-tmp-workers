@@ -30,6 +30,16 @@ type items struct {
 	Items []item `json:"items"`
 }
 
+type ops_member struct {
+	Id   uint64 `json:"id"`
+	Name string `json:"name"`
+}
+
+type ops_task_assignee struct {
+	TaskId uint64 `json:"task-id"`
+	OpsId  uint64 `json:"ops-id"`
+}
+
 var (
 	logger         = log.Default()
 	db     *sql.DB = nil
@@ -37,7 +47,9 @@ var (
 )
 
 const (
-	TASK_TABLE_NAME string = "tasks"
+	TASK_TABLE_NAME      string = "tasks"
+	OPS_TABLE_NAME       string = "ops_members"
+	OPS_TASKS_TABLE_NAME string = "ops_tasks"
 
 	STATUS_UPCOMING taskStatus = "upcoming"
 	STATUS_ONGOING  taskStatus = "ongoing"
@@ -172,7 +184,17 @@ func initTables() error {
 
 	if *reset {
 		logger.Println("reset table")
-		_, err := db.Exec(fmt.Sprintf("drop table %s;", TASK_TABLE_NAME))
+		_, err := db.Exec(fmt.Sprintf("drop table if exists %s;", TASK_TABLE_NAME))
+		if err != nil {
+			logger.Fatalln("failed to drop table at init: ", err)
+		}
+
+		_, err = db.Exec(fmt.Sprintf("drop table if exists %s;", OPS_TABLE_NAME))
+		if err != nil {
+			logger.Fatalln("failed to drop table at init: ", err)
+		}
+
+		_, err = db.Exec(fmt.Sprintf("drop table if exists %s;", OPS_TASKS_TABLE_NAME))
 		if err != nil {
 			logger.Fatalln("failed to drop table at init: ", err)
 		}
@@ -196,6 +218,28 @@ func initTables() error {
 		TASK_TABLE_NAME,
 	)
 	_, err := db.Exec(statement)
+	if err != nil {
+		return err
+	}
+
+	statement = fmt.Sprintf(`
+		create table if not exists %s (
+			id integer not null primary key autoincrement,
+			name string
+		);
+	`, OPS_TABLE_NAME)
+	_, err = db.Exec(statement)
+	if err != nil {
+		return err
+	}
+
+	statement = fmt.Sprintf(`
+		create table if not exists %s (
+			task_id integer not null,
+			ops_id integer not null
+		);
+	`, OPS_TASKS_TABLE_NAME)
+	_, err = db.Exec(statement)
 	if err != nil {
 		return err
 	}
