@@ -24,6 +24,7 @@ type item struct {
 	NrApplicants     uint32     `json:"applicants"`
 	Status           taskStatus `json:"status"`
 	Picture          string     `json:"picture"`
+	Ops              ops_member `json:"ops"`
 }
 
 type items struct {
@@ -114,6 +115,30 @@ func handleList(resposne http.ResponseWriter, request *http.Request) {
 			return
 		}
 
+		ops_task_row := db.QueryRow(
+			fmt.Sprintf(
+				"select task_id, ops_id from %s where task_id=%d",
+				OPS_TASKS_TABLE_NAME, item.Id,
+			),
+		)
+
+		ops_task := ops_task_assignee{}
+		if ops_task_row.Scan(&ops_task.TaskId, &ops_task.OpsId) == nil {
+			logger.Println("found a matching ops: ", ops_task)
+			ops_row := db.QueryRow(
+				fmt.Sprintf(
+					"select id, name from %s where id=%d",
+					OPS_TABLE_NAME, ops_task.OpsId,
+				),
+			)
+
+			ops := ops_member{}
+			if ops_row.Scan(&ops.Id, &ops.Name) == nil {
+				logger.Println("found ops: ", ops)
+				item.Ops = ops
+			}
+		}
+
 		items.Items = append(items.Items, item)
 	}
 
@@ -132,19 +157,19 @@ func handleTaskAdd(response http.ResponseWriter, request *http.Request) {
 	logger.Println("Add new task")
 
 	if request.Method != http.MethodPost {
-		msg := "/add only accepts POST requests"
+		msg := "/task/add only accepts POST requests"
 		writeErrorResponse(response, 400, msg)
 		return
 	}
 
 	if request.Header.Get("content-type") != "application/json" {
-		msg := "/add only accepts 'applicaton/json' content-type"
+		msg := "/task/add only accepts 'applicaton/json' content-type"
 		writeErrorResponse(response, 400, msg)
 		return
 	}
 
 	if request.ContentLength <= 0 {
-		msg := "/add request must be >0"
+		msg := "/task/add request must be >0"
 		writeErrorResponse(response, 409, msg)
 		return
 	}
@@ -183,19 +208,19 @@ func handleOpsAdd(w http.ResponseWriter, req *http.Request) {
 	logger.Println("add new ops memeber")
 
 	if req.Method != http.MethodPost {
-		msg := "/add only accepts POST requests"
+		msg := "/ops/add only accepts POST requests"
 		writeErrorResponse(w, 400, msg)
 		return
 	}
 
 	if req.Header.Get("content-type") != "application/json" {
-		msg := "/add only accepts 'applicaton/json' content-type"
+		msg := "/ops/add only accepts 'applicaton/json' content-type"
 		writeErrorResponse(w, 400, msg)
 		return
 	}
 
 	if req.ContentLength <= 0 {
-		msg := "/add request must be >0"
+		msg := "/ops/add request must be >0"
 		writeErrorResponse(w, 409, msg)
 		return
 	}
@@ -224,6 +249,55 @@ func handleOpsAdd(w http.ResponseWriter, req *http.Request) {
 
 	w.WriteHeader(200)
 	w.Write([]byte("ok"))
+}
+
+func handleAssign(w http.ResponseWriter, req *http.Request) {
+	logger.Println("add new ops memeber")
+
+	if req.Method != http.MethodPost {
+		msg := "/assign only accepts POST requests"
+		writeErrorResponse(w, 400, msg)
+		return
+	}
+
+	if req.Header.Get("content-type") != "application/json" {
+		msg := "/assign only accepts 'applicaton/json' content-type"
+		writeErrorResponse(w, 400, msg)
+		return
+	}
+
+	if req.ContentLength <= 0 {
+		msg := "/assign request must be >0"
+		writeErrorResponse(w, 409, msg)
+		return
+	}
+
+	body, err := io.ReadAll(req.Body)
+	if err != nil {
+		msg := fmt.Sprintf("failed to read full body of length: %d", req.ContentLength)
+		writeErrorResponse(w, 503, msg)
+		return
+	}
+
+	ops_task := ops_task_assignee{}
+	json.Unmarshal(body, &ops_task)
+
+	logger.Println("assign ops ", ops_task.OpsId, " to task ", ops_task.TaskId)
+
+	stmt := fmt.Sprintf(`
+		insert into %s(task_id, ops_id)
+		values (%d, %d)
+	`, OPS_TASKS_TABLE_NAME, ops_task.TaskId, ops_task.OpsId)
+
+	_, err = db.Exec(stmt)
+	if err != nil {
+		msg := fmt.Sprintf("failed to assign ops to task: %v", err)
+		writeErrorResponse(w, 503, msg)
+		return
+	}
+
+	w.WriteHeader(200)
+	w.Write([]byte("OK"))
 }
 
 func initTables() error {
@@ -323,6 +397,7 @@ func main() {
 	server.HandleFunc("/list", handleList)
 	server.HandleFunc("/task/add", handleTaskAdd)
 	server.HandleFunc("/ops/add", handleOpsAdd)
+	server.HandleFunc("/assign", handleAssign)
 
 	err = http.ListenAndServe(":80", server)
 	if err != nil {
